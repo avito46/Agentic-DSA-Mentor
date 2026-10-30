@@ -1,0 +1,10 @@
+# creat automat de Freekit (checkpoint-uri git)
+node_modules/
+dist/
+build/
+out/
+.astro/
+.next/
+.cache/
+*.vsix
+*.log
