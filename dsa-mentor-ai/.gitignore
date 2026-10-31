@@ -1,0 +1,34 @@
+# Environment variables & secrets
+.env
+.env.*
+!.env.example
+
+# SQLite Databases & raw imports
+*.db
+*.sqlite
+*.sqlite3
+data/raw/
+backups/
+
+# Python Virtual Environments & caches
+.venv/
+venv/
+ENV/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Node & Frontend
+dashboard/node_modules/
+dashboard/dist/
+dashboard/.vite/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS & Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

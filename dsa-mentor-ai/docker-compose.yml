@@ -1,0 +1,28 @@
+# DSA Mentor AI - Local Container Packaging
+# Local development & offline self-hosting ONLY. Zero cloud, zero registry push.
+
+services:
+  dsa-mentor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dsa-mentor-app
+    restart: unless-stopped
+    ports:
+      # Strictly bind to localhost loopback for privacy and security
+      - "127.0.0.1:5000:5000"
+    volumes:
+      # Persistent host volume mounts for SQLite DB, backups, and offline snapshots
+      - ./database:/app/database
+      - ./backups:/app/backups
+      - ./data/snapshots:/app/data/snapshots
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - PYTHONUNBUFFERED=1
+      - DB_PATH=/app/database/dsa_mentor.db
+      - OLLAMA_HOST=http://host.docker.internal:11434
+    extra_hosts:
+      # Allows the container to access host-running Ollama instance
+      - "host.docker.internal:host-gateway"
