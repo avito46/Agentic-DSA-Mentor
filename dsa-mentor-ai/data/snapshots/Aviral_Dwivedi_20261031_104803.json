@@ -1,0 +1,292 @@
+{
+  "data": {
+    "matchedUser": {
+      "username": "Aviral_Dwivedi",
+      "submitStatsGlobal": {
+        "acSubmissionNum": [
+          {
+            "difficulty": "All",
+            "count": 96
+          },
+          {
+            "difficulty": "Easy",
+            "count": 42
+          },
+          {
+            "difficulty": "Medium",
+            "count": 52
+          },
+          {
+            "difficulty": "Hard",
+            "count": 2
+          }
+        ]
+      },
+      "tagProblemCounts": {
+        "advanced": [
+          {
+            "tagName": "Data Stream",
+            "tagSlug": "data-stream",
+            "problemsSolved": 1
+          },
+          {
+            "tagName": "Backtracking",
+            "tagSlug": "backtracking",
+            "problemsSolved": 8
+          },
+          {
+            "tagName": "Dynamic Programming",
+            "tagSlug": "dynamic-programming",
+            "problemsSolved": 8
+          },
+          {
+            "tagName": "Divide and Conquer",
+            "tagSlug": "divide-and-conquer",
+            "problemsSolved": 4
+          },
+          {
+            "tagName": "Trie",
+            "tagSlug": "trie",
+            "problemsSolved": 1
+          },
+          {
+            "tagName": "Monotonic Stack",
+            "tagSlug": "monotonic-stack",
+            "problemsSolved": 2
+          }
+        ],
+        "intermediate": [
+          {
+            "tagName": "Tree",
+            "tagSlug": "tree",
+            "problemsSolved": 2
+          },
+          {
+            "tagName": "Binary Tree",
+            "tagSlug": "binary-tree",
+            "problemsSolved": 2
+          },
+          {
+            "tagName": "Hash Table",
+            "tagSlug": "hash-table",
+            "problemsSolved": 14
+          },
+          {
+            "tagName": "Greedy",
+            "tagSlug": "greedy",
+            "problemsSolved": 3
+          },
+          {
+            "tagName": "Binary Search",
+            "tagSlug": "binary-search",
+            "problemsSolved": 12
+          },
+          {
+            "tagName": "Depth-First Search",
+            "tagSlug": "depth-first-search",
+            "problemsSolved": 2
+          },
+          {
+            "tagName": "Breadth-First Search",
+            "tagSlug": "breadth-first-search",
+            "problemsSolved": 3
+          },
+          {
+            "tagName": "Recursion",
+            "tagSlug": "recursion",
+            "problemsSolved": 8
+          },
+          {
+            "tagName": "Bit Manipulation",
+            "tagSlug": "bit-manipulation",
+            "problemsSolved": 8
+          },
+          {
+            "tagName": "Math",
+            "tagSlug": "math",
+            "problemsSolved": 17
+          },
+          {
+            "tagName": "Design",
+            "tagSlug": "design",
+            "problemsSolved": 4
+          }
+        ],
+        "fundamental": [
+          {
+            "tagName": "Array",
+            "tagSlug": "array",
+            "problemsSolved": 53
+          },
+          {
+            "tagName": "Matrix",
+            "tagSlug": "matrix",
+            "problemsSolved": 9
+          },
+          {
+            "tagName": "String",
+            "tagSlug": "string",
+            "problemsSolved": 13
+          },
+          {
+            "tagName": "Simulation",
+            "tagSlug": "simulation",
+            "problemsSolved": 3
+          },
+          {
+            "tagName": "Enumeration",
+            "tagSlug": "enumeration",
+            "problemsSolved": 1
+          },
+          {
+            "tagName": "Sorting",
+            "tagSlug": "sorting",
+            "problemsSolved": 13
+          },
+          {
+            "tagName": "Stack",
+            "tagSlug": "stack",
+            "problemsSolved": 9
+          },
+          {
+            "tagName": "Queue",
+            "tagSlug": "queue",
+            "problemsSolved": 2
+          },
+          {
+            "tagName": "Linked List",
+            "tagSlug": "linked-list",
+            "problemsSolved": 11
+          },
+          {
+            "tagName": "Two Pointers",
+            "tagSlug": "two-pointers",
+            "problemsSolved": 22
+          }
+        ]
+      }
+    },
+    "recentAcSubmissionList": [
+      {
+        "id": "2184050830",
+        "title": "Add Two Numbers",
+        "titleSlug": "add-two-numbers",
+        "timestamp": "1793203257"
+      },
+      {
+        "id": "2182379878",
+        "title": "Delete Node in a Linked List",
+        "titleSlug": "delete-node-in-a-linked-list",
+        "timestamp": "1793030857"
+      },
+      {
+        "id": "2179719751",
+        "title": "Palindrome Partitioning",
+        "titleSlug": "palindrome-partitioning",
+        "timestamp": "1792765016"
+      },
+      {
+        "id": "2178770918",
+        "title": "Subsets",
+        "titleSlug": "subsets",
+        "timestamp": "1792669685"
+      },
+      {
+        "id": "2176253019",
+        "title": "Longest Common Prefix",
+        "titleSlug": "longest-common-prefix",
+        "timestamp": "1792416824"
+      },
+      {
+        "id": "2174404655",
+        "title": "Minimum Swaps to Sort by Digit Sum",
+        "titleSlug": "minimum-swaps-to-sort-by-digit-sum",
+        "timestamp": "1792224883"
+      },
+      {
+        "id": "2158811924",
+        "title": "Set Matrix Zeroes",
+        "titleSlug": "set-matrix-zeroes",
+        "timestamp": "1790830609"
+      },
+      {
+        "id": "2158369834",
+        "title": "Contains Duplicate",
+        "titleSlug": "contains-duplicate",
+        "timestamp": "1790786030"
+      },
+      {
+        "id": "2152964960",
+        "title": "Container With Most Water",
+        "titleSlug": "container-with-most-water",
+        "timestamp": "1790339298"
+      },
+      {
+        "id": "2145517565",
+        "title": "Same Tree",
+        "titleSlug": "same-tree",
+        "timestamp": "1789717825"
+      },
+      {
+        "id": "2144724914",
+        "title": "Maximum Depth of Binary Tree",
+        "titleSlug": "maximum-depth-of-binary-tree",
+        "timestamp": "1789650246"
+      },
+      {
+        "id": "2142557275",
+        "title": "Minimum Path Sum",
+        "titleSlug": "minimum-path-sum",
+        "timestamp": "1789473933"
+      },
+      {
+        "id": "2141586328",
+        "title": "Set Mismatch",
+        "titleSlug": "set-mismatch",
+        "timestamp": "1789391955"
+      },
+      {
+        "id": "2140464008",
+        "title": "Minimum Path Sum",
+        "titleSlug": "minimum-path-sum",
+        "timestamp": "1789292101"
+      },
+      {
+        "id": "2139737412",
+        "title": "Subsets II",
+        "titleSlug": "subsets-ii",
+        "timestamp": "1789228339"
+      },
+      {
+        "id": "2138361537",
+        "title": "Power of Four",
+        "titleSlug": "power-of-four",
+        "timestamp": "1789116343"
+      },
+      {
+        "id": "2137581980",
+        "title": "Unique Paths",
+        "titleSlug": "unique-paths",
+        "timestamp": "1789050581"
+      },
+      {
+        "id": "2132471084",
+        "title": "Rotting Oranges",
+        "titleSlug": "rotting-oranges",
+        "timestamp": "1788672288"
+      },
+      {
+        "id": "2130627584",
+        "title": "Sudoku Solver",
+        "titleSlug": "sudoku-solver",
+        "timestamp": "1788520787"
+      },
+      {
+        "id": "2129505552",
+        "title": "Rotate Image",
+        "titleSlug": "rotate-image",
+        "timestamp": "1788431795"
+      }
+    ]
+  }
+}

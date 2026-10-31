@@ -48,22 +48,32 @@ def evaluate_candidate_problem(
     """
     Computes normalized score components and penalties for a candidate problem.
     All positive terms are in [0, 1].
+    Strictly pattern-aligned: prioritizes problems that build upon and continue the
+    user's demonstrated practice patterns while penalizing completely unstudied alien topics.
     """
     topics = problem.get("topics", [])
     canonical_topics = get_canonical_patterns(topics)
     problem_id = problem["problem_id"]
     difficulty = problem.get("difficulty", "Medium")
 
-    # 1. Topic Weakness (average of normalized weaknesses for problem's topics)
+    # Check if this is a cold start (no solved history in entire database)
+    total_db_exposure = sum(ts.get("exposure_count", 0) for ts in topic_stats_map.values())
+    is_cold_start = (total_db_exposure == 0)
+
+    # Check if candidate matches any topic the user has actually practiced
+    practiced_canonical = [
+        t for t in canonical_topics if topic_stats_map.get(t, {}).get("exposure_count", 0) > 0
+    ]
+    has_practiced_in_pattern = len(practiced_canonical) > 0 or is_cold_start
+
+    # 1. Topic Weakness & Recency
     weakness_values = []
     recency_values = []
-    confidence_values = []
     for t in canonical_topics:
         ts = topic_stats_map.get(t)
-        if ts:
+        if ts and ts.get("exposure_count", 0) > 0:
             mastery = ts.get("mastery_score", 0.0)
-            weakness_values.append((100.0 - mastery) / 100.0)
-            # Recency
+            weakness_values.append(max(0.2, (100.0 - mastery) / 100.0))
             last_practised = ts.get("last_practised_at")
             if last_practised:
                 try:
@@ -71,21 +81,32 @@ def evaluate_candidate_problem(
                     if dt.tzinfo is None:
                         dt = dt.replace(tzinfo=timezone.utc)
                     days = max(0.0, (datetime.now(timezone.utc) - dt).total_seconds() / 86400.0)
-                    rec_score = max(0.0, 1.0 - (days / 60.0))
+                    rec_score = max(0.0, 1.0 - (days / 30.0))
                     recency_values.append(rec_score)
                 except Exception:
                     recency_values.append(0.5)
             else:
-                recency_values.append(0.0)
+                recency_values.append(0.5)
         else:
-            # Unseen topic: high weakness, zero recency
-            weakness_values.append(1.0)
-            recency_values.append(0.0)
+            if is_cold_start:
+                weakness_values.append(0.8)
+                recency_values.append(0.0)
+            else:
+                # Unstudied topic: low weakness so alien topics do not dominate
+                weakness_values.append(0.15)
+                recency_values.append(0.0)
 
-    topic_weakness = sum(weakness_values) / len(weakness_values) if weakness_values else 0.8
-    # Revision due: higher if previously practiced but recency has dropped
-    avg_rec = sum(recency_values) / len(recency_values) if recency_values else 0.0
-    revision_due = max(0.0, 1.0 - avg_rec) if avg_rec > 0 else 0.5
+    # Base weakness on practiced topics if any exist
+    practiced_weaknesses = [w for w, t in zip(weakness_values, canonical_topics) if topic_stats_map.get(t, {}).get("exposure_count", 0) > 0]
+    topic_weakness = sum(practiced_weaknesses) / len(practiced_weaknesses) if practiced_weaknesses else (sum(weakness_values) / len(weakness_values) if weakness_values else 0.2)
+
+    # Revision due & Active Pattern Momentum
+    if has_practiced_in_pattern:
+        max_rec = max(recency_values) if recency_values else 0.5
+        # Strong bonus for continuing an active recent practice streak (e.g. Linked List in last 3 days)
+        revision_due = 0.50 + 0.50 * max_rec
+    else:
+        revision_due = 0.10
 
     # 2. Difficulty fit: evaluate match against topic difficulty ceiling
     highest_ceiling = "None"
@@ -102,25 +123,44 @@ def evaluate_candidate_problem(
         elif "Easy" in ceil and highest_ceiling == "None":
             highest_ceiling = "Easy"
 
+    # Also check overall user medium solve history
+    total_medium_solves = sum(
+        1 for evs in recent_events_map.values()
+        for e in evs if e.get("event_type") == "solved" and e.get("difficulty") == "Medium"
+    )
+    if total_medium_solves >= 2:
+        has_medium_solves = True
+
     if difficulty == "Easy":
-        difficulty_fit = 1.0 if highest_ceiling in ("None", "Easy") else 0.6
+        difficulty_fit = 1.0 if is_cold_start or highest_ceiling in ("None", "Easy") else 0.5
     elif difficulty == "Medium":
-        difficulty_fit = 1.0 if highest_ceiling in ("Easy", "Medium") else 0.7
+        difficulty_fit = 1.0 if has_medium_solves or highest_ceiling in ("Easy", "Medium") else 0.7
     elif difficulty == "Hard":
-        difficulty_fit = 1.0 if highest_ceiling in ("Medium", "Hard") else 0.3
+        difficulty_fit = 0.8 if has_medium_solves else 0.25
     else:
         difficulty_fit = 0.5
 
-    # 3. Pattern Learning Value
-    # Higher value if the problem contains an unpracticed or low-exposure pattern
-    pattern_learning_value = 0.5
-    for t in canonical_topics:
-        ts = topic_stats_map.get(t, {})
-        if ts.get("exposure_count", 0) == 0:
-            pattern_learning_value = 1.0
-            break
-        elif ts.get("exposure_count", 0) < 3:
-            pattern_learning_value = max(pattern_learning_value, 0.8)
+    # 3. Pattern Learning Value: highest for active learning track within solved patterns
+    if is_cold_start:
+        pattern_learning_value = 0.8
+    elif not has_practiced_in_pattern:
+        # Alien topic out of user's active pattern tracks
+        pattern_learning_value = 0.15
+    else:
+        learning_vals = []
+        for t in canonical_topics:
+            exp = topic_stats_map.get(t, {}).get("exposure_count", 0)
+            if 1 <= exp <= 12:
+                # Active learning track (sweet spot: foundational reinforcement & level up)
+                learning_vals.append(1.0)
+            elif 13 <= exp <= 25:
+                learning_vals.append(0.8)
+            elif exp > 25:
+                # High exposure (e.g. Array with 53 solves)
+                learning_vals.append(0.55)
+            else:
+                learning_vals.append(0.2)
+        pattern_learning_value = max(learning_vals) if learning_vals else 0.5
 
     # 4. Confidence fit
     confidence_fit = 0.7
@@ -132,7 +172,6 @@ def evaluate_candidate_problem(
 
     # 6. Penalties
     repeat_penalty = 0.0
-    # Check if recommended or attempted in the last 7 days
     if problem_events:
         repeat_penalty = REPEAT_PENALTY
 
@@ -158,12 +197,15 @@ def evaluate_candidate_problem(
 
     # Primary reason generation
     reasons = []
-    if topic_weakness >= 0.7:
-        reasons.append(f"Targeting growth in high-priority topic ({', '.join(canonical_topics[:2])})")
+    if practiced_canonical:
+        reasons.append(f"Advancing your active practice pattern ({', '.join(practiced_canonical[:2])})")
+    elif is_cold_start:
+        reasons.append(f"Targeting growth in core DSA pattern: {canonical_topics[0] if canonical_topics else 'core'}")
     if pattern_learning_value >= 0.8:
-        reasons.append(f"Reinforcing foundational pattern: {canonical_topics[0] if canonical_topics else 'core DSA'}")
+        reasons.append(f"Optimal level-up problem matching your solved history")
     if revision_due >= 0.7:
-        reasons.append("Spaced repetition due for long-unpracticed concepts")
+        reasons.append("Reinforcing momentum from recent successful submissions")
+
     if not reasons:
         reasons.append(f"Optimal difficulty match ({difficulty}) for current problem-solving momentum")
 
@@ -299,7 +341,7 @@ def select_daily_problem(
 
         # Step 5: Load recent events map for candidates to check attempt history
         recent_cur = conn.execute(
-            "SELECT problem_id, event_type, occurred_at FROM activity_events"
+            "SELECT ae.problem_id, ae.event_type, ae.occurred_at, p.difficulty FROM activity_events ae JOIN problems p ON ae.problem_id = p.problem_id"
         )
         recent_events_map: Dict[int, List[Dict[str, Any]]] = {}
         for r in recent_cur.fetchall():

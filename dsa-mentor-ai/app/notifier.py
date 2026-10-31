@@ -115,8 +115,13 @@ def notify_daily_problem(
     """
     message_text = format_daily_message(recommendation, coaching)
 
-    # 1. Terminal Output (Always delivered)
-    print("\n" + message_text + "\n")
+    # 1. Terminal Output (Always delivered safely across platforms)
+    try:
+        print("\n" + message_text + "\n")
+    except UnicodeEncodeError:
+        import sys
+        enc = sys.stdout.encoding or "utf-8"
+        print("\n" + message_text.encode(enc, errors="replace").decode(enc) + "\n")
 
     # 2. Telegram Dispatch
     telegram_delivered = False

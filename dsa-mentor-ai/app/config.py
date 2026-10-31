@@ -81,10 +81,18 @@ def setup_logger(name: str = "dsa_mentor", level: str = None) -> logging.Logger:
 # Global logger instance
 logger = setup_logger()
 
+def _resolve_config_path(env_var: str, default_subpath: str) -> Path:
+    val = os.environ.get(env_var)
+    if val:
+        p = Path(val)
+        return p if p.is_absolute() else (BASE_DIR / p)
+    return BASE_DIR / default_subpath
+
+
 # Config paths
-DB_PATH = Path(os.environ.get("DB_PATH", str(BASE_DIR / "database" / "dsa_mentor.db")))
-CATALOGUE_PATH = Path(os.environ.get("CATALOGUE_PATH", str(BASE_DIR / "data" / "problems.json")))
-SNAPSHOT_DIR = Path(os.environ.get("SNAPSHOT_DIR", str(BASE_DIR / "data" / "snapshots")))
+DB_PATH = _resolve_config_path("DB_PATH", "database/dsa_mentor.db")
+CATALOGUE_PATH = _resolve_config_path("CATALOGUE_PATH", "data/problems.json")
+SNAPSHOT_DIR = _resolve_config_path("SNAPSHOT_DIR", "data/snapshots")
 SCHEMA_PATH = BASE_DIR / "database" / "schema.sql"
 
 # LeetCode Configuration

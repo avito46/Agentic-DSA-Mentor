@@ -15,9 +15,37 @@ from app.config import (
     SNAPSHOT_DIR,
     logger,
 )
+from app.learner_model import refresh_topic_stats
+from app.pattern_analyzer import get_canonical_patterns
 
 GRAPHQL_QUERY = """
-query recentAcSubmissions($username: String!, $limit: Int!) {
+query userProfileAndRecentAc($username: String!, $limit: Int!) {
+  matchedUser(username: $username) {
+    username
+    submitStatsGlobal {
+      acSubmissionNum {
+        difficulty
+        count
+      }
+    }
+    tagProblemCounts {
+      advanced {
+        tagName
+        tagSlug
+        problemsSolved
+      }
+      intermediate {
+        tagName
+        tagSlug
+        problemsSolved
+      }
+      fundamental {
+        tagName
+        tagSlug
+        problemsSolved
+      }
+    }
+  }
   recentAcSubmissionList(username: $username, limit: $limit) {
     id
     title
@@ -27,10 +55,34 @@ query recentAcSubmissions($username: String!, $limit: Int!) {
 }
 """
 
+QUESTION_QUERY = """
+query questionData($titleSlug: String!) {
+  question(titleSlug: $titleSlug) {
+    questionFrontendId
+    title
+    titleSlug
+    difficulty
+    topicTags {
+      name
+      slug
+    }
+  }
+}
+"""
+
 
 class LeetCodeSyncError(Exception):
     """Base exception for LeetCode synchronization issues."""
     pass
+
+
+def get_ca_bundle() -> Optional[str]:
+    """Return certifi bundle path if available to prevent Windows ASN1 certificate store crashes."""
+    try:
+        import certifi
+        return certifi.where()
+    except Exception:
+        return None
 
 
 def save_snapshot(username: str, data: Dict[str, Any]) -> Path:
@@ -76,6 +128,44 @@ def load_latest_snapshot(username: str) -> Optional[Dict[str, Any]]:
     return None
 
 
+def fetch_question_metadata(
+    title_slug: str,
+    max_retries: int = 2,
+) -> Optional[Dict[str, Any]]:
+    """Fetch verified difficulty and topic tags from LeetCode for a question slug."""
+    payload = {
+        "query": QUESTION_QUERY,
+        "variables": {"titleSlug": title_slug},
+    }
+    headers = {
+        "Content-Type": "application/json",
+        "Referer": "https://leetcode.com",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    }
+    ca_bundle = get_ca_bundle()
+
+    for attempt in range(1, max_retries + 1):
+        try:
+            time.sleep(0.3)
+            kwargs: Dict[str, Any] = {"timeout": 8.0}
+            if ca_bundle:
+                kwargs["verify"] = ca_bundle
+            resp = requests.post(
+                LEETCODE_GRAPHQL_URL,
+                json=payload,
+                headers=headers,
+                **kwargs,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            q = (data.get("data") or {}).get("question")
+            if q and q.get("questionFrontendId"):
+                return q
+        except Exception as e:
+            logger.debug(f"Question metadata fetch for {title_slug} attempt {attempt} failed: {e}")
+    return None
+
+
 # shortcut: Public GraphQL queries using public submissions endpoint, upgrade: Revisit if LeetCode GraphQL schema changes
 def fetch_public_submissions_from_api(
     username: str,
@@ -96,18 +186,24 @@ def fetch_public_submissions_from_api(
     }
     headers = {
         "Content-Type": "application/json",
-        "User-Agent": "DSA-Mentor-AI/1.0 (Educational Sync Client)",
+        "Referer": "https://leetcode.com",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     }
+    ca_bundle = get_ca_bundle()
 
     last_exc = None
     for attempt in range(1, max_retries + 1):
         try:
             time.sleep(LEETCODE_RATE_LIMIT_DELAY)
+            kwargs: Dict[str, Any] = {"timeout": 10.0}
+            if ca_bundle:
+                kwargs["verify"] = ca_bundle
+
             response = requests.post(
                 LEETCODE_GRAPHQL_URL,
                 json=payload,
                 headers=headers,
-                timeout=10.0,
+                **kwargs,
             )
             response.raise_for_status()
             data = response.json()
@@ -209,8 +305,8 @@ def sync_leetcode_history(
             logger.warning(error_summary)
 
         # Get existing solved problem slugs and IDs
-        cur = conn.execute("SELECT problem_id, slug FROM problems")
-        slug_to_id = {row["slug"]: row["problem_id"] for row in cur.fetchall()}
+        cur = conn.execute("SELECT problem_id, slug, difficulty, topics_json FROM problems")
+        existing_problem_rows = {row["slug"]: dict(row) for row in cur.fetchall()}
 
         solved_cur = conn.execute(
             "SELECT DISTINCT problem_id FROM activity_events WHERE event_type IN ('solved', 'imported')"
@@ -227,10 +323,61 @@ def sync_leetcode_history(
                 else utc_now_iso()
             )
 
-            # Match slug to problem
-            problem_id = slug_to_id.get(slug)
+            # Match slug to existing problem in DB
+            prob_info = existing_problem_rows.get(slug)
+            problem_id = prob_info["problem_id"] if prob_info else None
+            needs_meta = (
+                not prob_info
+                or prob_info.get("difficulty") in ("unknown", None)
+                or prob_info.get("topics_json") in ("[]", None)
+            )
+
+            if needs_meta and not force_offline and not is_stale_fallback:
+                meta = fetch_question_metadata(slug)
+                if meta and meta.get("questionFrontendId"):
+                    try:
+                        real_id = int(meta["questionFrontendId"])
+                        q_title = meta.get("title") or title
+                        q_diff = meta.get("difficulty") or "Medium"
+                        q_topics = [t["name"] for t in meta.get("topicTags", []) if t.get("name")]
+                        q_topics_json = json.dumps(q_topics)
+
+                        conn.execute(
+                            """
+                            INSERT INTO problems (
+                                problem_id, title, slug, url, difficulty, topics_json,
+                                premium_status, source, verified_at
+                            ) VALUES (?, ?, ?, ?, ?, ?, 0, 'leetcode_sync', ?)
+                            ON CONFLICT(problem_id) DO UPDATE SET
+                                title = excluded.title,
+                                slug = excluded.slug,
+                                url = excluded.url,
+                                difficulty = excluded.difficulty,
+                                topics_json = excluded.topics_json,
+                                verified_at = excluded.verified_at
+                            """,
+                            (
+                                real_id,
+                                q_title,
+                                slug,
+                                f"https://leetcode.com/problems/{slug}/",
+                                q_diff,
+                                q_topics_json,
+                                utc_now_iso(),
+                            ),
+                        )
+                        problem_id = real_id
+                        existing_problem_rows[slug] = {
+                            "problem_id": real_id,
+                            "slug": slug,
+                            "difficulty": q_diff,
+                            "topics_json": q_topics_json,
+                        }
+                    except (ValueError, TypeError) as e:
+                        logger.debug(f"Failed parsing questionFrontendId for {slug}: {e}")
+
             if not problem_id:
-                # If problem not in catalogue yet, assign next synthetic negative/high ID or query max ID
+                # If problem still not resolved, assign next synthetic ID
                 max_id_row = conn.execute("SELECT MAX(problem_id) as m FROM problems").fetchone()
                 next_id = (max_id_row["m"] or 10000) + 1
                 conn.execute(
@@ -243,7 +390,12 @@ def sync_leetcode_history(
                     (next_id, title, slug, f"https://leetcode.com/problems/{slug}/", utc_now_iso()),
                 )
                 problem_id = next_id
-                slug_to_id[slug] = problem_id
+                existing_problem_rows[slug] = {
+                    "problem_id": problem_id,
+                    "slug": slug,
+                    "difficulty": "unknown",
+                    "topics_json": "[]",
+                }
 
             if problem_id not in already_solved_ids:
                 conn.execute(
@@ -257,6 +409,46 @@ def sync_leetcode_history(
                 already_solved_ids.add(problem_id)
                 records_added += 1
 
+        # Ingest overall tagProblemCounts from matchedUser if available
+        user_data = (raw_data.get("data") or {}).get("matchedUser") or {}
+        tag_counts = user_data.get("tagProblemCounts") or {}
+        if tag_counts and isinstance(tag_counts, dict):
+            now_iso = utc_now_iso()
+            for cat_name, tag_list in tag_counts.items():
+                if isinstance(tag_list, list):
+                    for t in tag_list:
+                        tag_name = t.get("tagName", "")
+                        count = t.get("problemsSolved", 0)
+                        if count > 0:
+                            canonical_topics = get_canonical_patterns([tag_name])
+                            for c_topic in canonical_topics:
+                                conn.execute(
+                                    """
+                                    INSERT INTO topic_stats (
+                                        topic, mastery_score, exposure_count, success_rate,
+                                        last_practised_at, evidence_count, updated_at
+                                    ) VALUES (?, ?, ?, 1.0, ?, ?, ?)
+                                    ON CONFLICT(topic) DO UPDATE SET
+                                        exposure_count = MAX(topic_stats.exposure_count, excluded.exposure_count),
+                                        evidence_count = MAX(topic_stats.evidence_count, excluded.evidence_count),
+                                        mastery_score = CASE
+                                            WHEN excluded.exposure_count >= 20 THEN MAX(topic_stats.mastery_score, 85.0)
+                                            WHEN excluded.exposure_count >= 10 THEN MAX(topic_stats.mastery_score, 70.0)
+                                            WHEN excluded.exposure_count >= 5 THEN MAX(topic_stats.mastery_score, 55.0)
+                                            ELSE topic_stats.mastery_score
+                                        END,
+                                        updated_at = excluded.updated_at
+                                    """,
+                                    (
+                                        c_topic,
+                                        50.0 if count < 10 else 75.0,
+                                        count,
+                                        now_iso,
+                                        count,
+                                        now_iso,
+                                    ),
+                                )
+
         completed_at = utc_now_iso()
         conn.execute(
             """
@@ -266,6 +458,12 @@ def sync_leetcode_history(
             """,
             (started_at, completed_at, total_seen, records_added, status, error_summary),
         )
+
+    # Recompute topic statistics with the fresh activity events
+    try:
+        refresh_topic_stats(db_path=db_path)
+    except Exception as e:
+        logger.warning(f"Post-sync topic stats refresh warning: {e}")
 
     logger.info(
         f"LeetCode sync finished: status={status}, seen={total_seen}, added={records_added}"
