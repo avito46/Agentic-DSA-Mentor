@@ -66,33 +66,33 @@ Most software engineers tackling Data Structures & Algorithms (DSA) face three c
 ```mermaid
 flowchart TD
     subgraph Ingestion Layer
-        A[Verified Problem Catalogue\ndata/problems.json] --> DB[(SQLite Database\nforeign_keys = ON)]
-        B[Manual CSV/JSON Import\nscripts/import_history.py] --> DB
-        C[LeetCode Public Profile Sync\nGraphQL Read-Only] --> DB
+        A["Verified Problem Catalogue<br/>data/problems.json"] --> DB[("SQLite Database<br/>foreign_keys = ON")]
+        B["Manual CSV/JSON Import<br/>scripts/import_history.py"] --> DB
+        C["LeetCode Public Profile Sync<br/>GraphQL Read-Only"] --> DB
     end
 
     subgraph Deterministic Core
-        DB --> D[Learner Mastery Engine\n5-Signal Weighted Model 0-100]
-        D --> E[Recommender Engine\n50% Weak | 30% Spaced | 20% New]
-        E --> F[Single Daily Problem Selection\nUNIQUE Date Constraint]
+        DB --> D["Learner Mastery Engine<br/>5-Signal Weighted Model 0-100"]
+        D --> E["Recommender Engine<br/>50% Weak • 30% Spaced • 20% New"]
+        E --> F["Single Daily Problem Selection<br/>UNIQUE Date Constraint"]
     end
 
     subgraph Dual-Engine AI Coaching
-        F --> G{Local Ollama\nAvailable?}
-        G -- Yes --> H[Ollama Local LLM\nllama3.2:3b / qwen2.5:3b]
-        G -- No / Error --> I[Deterministic Template Fallback\nSub-second Failover]
-        H --> J[Structured JSON Hints & Reason]
+        F --> G{"Local Ollama<br/>Available?"}
+        G -- "Yes" --> H["Ollama Local LLM<br/>llama3.2:3b / qwen2.5:3b"]
+        G -- "No / Fallback" --> I["Deterministic Template Fallback<br/>Sub-second Failover"]
+        H --> J["Structured JSON Hints & Reason"]
         I --> J
     end
 
     subgraph Delivery & Channels
-        J --> K[Terminal Output]
-        J --> L[Telegram Bot Dispatch\nOptional Notification]
-        J --> M[React Web Dashboard\nhttp://localhost:5000]
+        J --> K["Terminal Output"]
+        J --> L["Telegram Bot Dispatch<br/>Optional Notification"]
+        J --> M["React Web Dashboard<br/>http://localhost:5000"]
     end
 
     subgraph Adaptive Feedback Loop
-        M --> N[User Feedback Submission\nMinutes, Hints, Blocker, Confidence]
+        M --> N["User Feedback Submission<br/>Minutes, Hints, Blocker, Confidence"]
         K --> N
         N --> DB
         N --> D
